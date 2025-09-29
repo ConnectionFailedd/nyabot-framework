@@ -1,0 +1,41 @@
+# * Bot 配置
+[bot]
+plugin_dirs = [
+    "plugins/command_helper",
+]
+adapters = ["alicebot.adapter.cqhttp"]
+
+# ! 用于 bot 级上报，例如 bot 启动/删除时的自动播报
+# ! 缺少此配置则不会播报
+bot_report_gid = 0 # TODO
+
+# * 适配器配置
+[adapter.cqhttp]
+adapter_type = "ws"
+host = "napcat"
+port = 3001
+
+# * 插件配置
+# ! 插件级配置都是可选的，不写会有默认值
+# ? command_helper
+[plugin.command_helper]
+# NYAPluginConfig
+# ! 插件级的上报群聊
+# ! 缺少此配置会丢弃所有 ReturnValue 中使用 report 上报的内容
+report_gid = 0 # TODO
+# ! 状态存储的文件名，会在启动时自动尝试加载，关闭时自动尝试保存，路径为 f"data/{state_filename}"
+# ! 缺少此配置则不会尝试自动加载/保存状态
+# ! 这个配置需要 __init_state__ 函数定义了才能生效
+state_filename = "command_helper.json"
+
+# CQHTTPGroupMessageCommandHandlerPluginConfig
+# ! 限定群聊，只在这些群聊中的命令 bot 才会处理
+# ! 缺少此配置则 bot 会在任意群聊处理命令
+# ! 也会影响 help 的显示
+limited_group_ids = [] # TODO
+# ! 身份到 QQ 号列表的映射，用于限制用户权限
+# ! 没有身份限制的话也可以不写这部分
+[plugin.command_helper.role_to_qq_uin_list_map]
+admin = [1596944396]
+
+# 插件自定义的其他配置

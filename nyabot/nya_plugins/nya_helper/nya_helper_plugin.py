@@ -1,67 +1,37 @@
 from typing import TypeVar
 
-from alicebot.adapter.cqhttp.event import GroupMessageEvent
-
-from nyaplugin import NYAPluginState
-from nyaplugin.command_handler import (
-    CQHTTPGroupMessageCommandHandlerPlugin,
-    CQHTTPGroupMessageCommandHandlerPluginConfig,
+from nya_plugin import (
     FunctionWithVariableParams,
     LeafCommand,
+    NyaConfig,
+    NyaFactory,
+    NyaPlugin,
+    NyaState,
     ReturnValue,
 )
 
-EventT = TypeVar("EventT", bound=GroupMessageEvent)
-StateT = TypeVar("StateT")
-ConfigT = TypeVar("ConfigT", bound="CQHTTPGroupMessageCommandHandlerPluginConfig")
+StateT = TypeVar("StateT", bound="NyaState")
+ConfigT = TypeVar("ConfigT", bound="NyaConfig")
 
 
-class CommandHelperPluginConfig(CQHTTPGroupMessageCommandHandlerPluginConfig):
-    __config_name__ = "command_helper"
-
-
-class CommandHelperPlugin(
-    CQHTTPGroupMessageCommandHandlerPlugin[
-        GroupMessageEvent, NYAPluginState, CommandHelperPluginConfig
-    ]
-):
+class NyaHelperPlugin(NyaPlugin[NyaConfig, NyaState]):
     """
-    'help': NYABot 帮助命令
+    'help': NYA bot 帮助命令
     """
 
     def _get_available_command_handler_plugin_list(
         self,
-    ) -> list[
-        type[
-            CQHTTPGroupMessageCommandHandlerPlugin[
-                GroupMessageEvent,
-                NYAPluginState,
-                CQHTTPGroupMessageCommandHandlerPluginConfig,
-            ]
-        ]
-    ]:
+    ) -> list[type[NyaPlugin[NyaConfig, NyaState]]]:
         available_command_handler_plugin_list: list[
-            type[
-                CQHTTPGroupMessageCommandHandlerPlugin[
-                    GroupMessageEvent,
-                    NYAPluginState,
-                    CQHTTPGroupMessageCommandHandlerPluginConfig,
-                ]
-            ]
+            type[NyaPlugin[NyaConfig, NyaState]]
         ] = []
 
-        for plugin in self.registered_nyaplugin_list:
-            # 筛选命令处理插件
-            if not issubclass(plugin, CQHTTPGroupMessageCommandHandlerPlugin):
-                continue
-
-            plugin_instance = plugin()
-            plugin_instance.event = self.event
+        for plugin in NyaFactory.nya_plugin_map.values():
+            plugin_instance = plugin(self.event)
             # 根据群 ID 筛选
             if (
-                plugin_instance.config.limited_group_id_set
-                and self.event.group_id
-                not in plugin_instance.config.limited_group_id_set
+                plugin_instance.config.gid_set
+                and self.event.group_id not in plugin_instance.config.gid_set
             ):
                 continue
 
@@ -98,8 +68,8 @@ class CommandHelperPlugin(
         plugin = next(
             (
                 plugin
-                for plugin in self.registered_nyaplugin_list
-                if issubclass(plugin, CQHTTPGroupMessageCommandHandlerPlugin)
+                for plugin in NyaFactory.nya_plugin_map.values()
+                if issubclass(plugin, NyaPlugin)
                 and plugin.command.name == command_parts[0]
             ),
             None,
@@ -123,8 +93,7 @@ class CommandHelperPlugin(
             return ReturnValue(1, log=f"Command not found: {command_parts[0]}")
 
         # 查找对应的命令
-        plugin_instance = plugin()
-        plugin_instance.event = self.event
+        plugin_instance = plugin(self.event)
         roles = plugin_instance._get_roles()
         command, args, permission_denied = plugin_instance._parse_command(
             list(command_parts), roles
@@ -143,9 +112,9 @@ class CommandHelperPlugin(
         await self.event.reply(command.help_info(roles))
         return ReturnValue(0)
 
-    command = LeafCommand(
+    _command = LeafCommand(
         name="help",
-        desc="NYABot 帮助命令",
+        desc="NYA bot 帮助命令",
         limited_roles=None,  # 帮助指令对所有人开放
         function=FunctionWithVariableParams(
             func=help,

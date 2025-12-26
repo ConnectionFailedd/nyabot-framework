@@ -8,4 +8,4 @@ usermod -g ${NYABOT_GID} nyabot
 chown -R ${NYABOT_UID}:${NYABOT_GID} /app
 
 # 使用 exec 才能保证最后的 PID 1 是 python main.py
-exec gosu nyabot python ./main.py
+exec gosu nyabot python ./bot.py

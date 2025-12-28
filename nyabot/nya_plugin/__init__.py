@@ -34,6 +34,23 @@ from structlog import get_logger
 
 from .class_property import class_property
 
+__all__ = [
+    "NyaConfig", 
+    "NyaState",
+    "NyaEvent",
+    "NyaPlugin",
+    "NyaFactory",
+    "ReturnValue",
+    "Function",
+    "FunctionWithFixedParams",
+    "FunctionWithOptionalParam",
+    "FunctionWithVariableParams",
+    "Command",
+    "InternalCommand",
+    "RootCommand",
+    "LeafCommand",
+]
+
 
 class NyaConfig(BaseModel):
     """
@@ -409,7 +426,7 @@ class NyaFactory:
                 )
                 nya_state = plugin_cls.state_cls()
             else:
-                with open(state_filename, "r") as state_file:
+                with open(f"data/{state_filename}", "r") as state_file:
                     nya_state = plugin_cls.state_cls.model_validate_json(
                         state_file.read()
                     )
@@ -1133,3 +1150,8 @@ def load_nya_plugins(nya_plugin_dir: str | Path):
         load_nya_plugin(nya_plugin)
 
     NyaPlugin.logger.info("All plugins loaded", dir=nya_plugin_dir)
+
+@nonebot.get_driver().on_shutdown
+async def save_states():
+    for plugin in NyaFactory.nya_plugin_map.values():
+        await plugin.save_state()

@@ -14,13 +14,13 @@ from nya_plugin import (
 class NyaControllerPlugin(NyaPlugin[NyaConfig, NyaState]):
     async def ctrl_state_save(self) -> ReturnValue:
         for plugin in NyaFactory.nya_plugin_map.values():
-            await plugin(self.event).save_state()
+            await plugin.save_state()
         await self.event.reply("已保存所有插件状态")
         return ReturnValue(0)
 
     async def ctrl_state_load(self) -> ReturnValue:
         for plugin in NyaFactory.nya_plugin_map.values():
-            await plugin(self.event).load_state()
+            await plugin.load_state()
         await self.event.reply("已加载所有插件状态")
         return ReturnValue(0)
 
@@ -28,8 +28,8 @@ class NyaControllerPlugin(NyaPlugin[NyaConfig, NyaState]):
         await self.event.reply(
             "已加载的插件：\n"
             + "\n".join(
-                "* " + registered_plugin.__name__
-                for registered_plugin in NyaFactory.nya_plugin_map.values()
+                "* " + plugin.__name__
+                for plugin in NyaFactory.nya_plugin_map.values()
             )
         )
         return ReturnValue(0)
@@ -37,9 +37,9 @@ class NyaControllerPlugin(NyaPlugin[NyaConfig, NyaState]):
     async def ctrl_plugin_show_config(self, plugin_name: str) -> ReturnValue:
         plugin = next(
             (
-                registered_plugin
-                for registered_plugin in NyaFactory.nya_plugin_map.values()
-                if registered_plugin.__name__ == plugin_name
+                plugin
+                for plugin in NyaFactory.nya_plugin_map.values()
+                if plugin.__name__ == plugin_name
             ),
             None,
         )

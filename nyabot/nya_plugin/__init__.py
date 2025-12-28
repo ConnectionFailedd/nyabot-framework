@@ -154,13 +154,13 @@ class NyaPlugin(Generic[NyaConfigT, NyaStateT], ABC):
         # 向 NyaFactory 注册
         NyaFactory.register(cls)
 
-    @cached_property
-    def config(self) -> NyaConfig:
-        return NyaFactory.nya_config_map[self._command.name]
+    @class_property
+    def config(cls) -> NyaConfig:
+        return NyaFactory.nya_config_map[cls._command.name]
 
-    @cached_property
-    def state(self) -> NyaState:
-        return NyaFactory.nya_state_map[self._command.name]
+    @class_property
+    def state(cls) -> NyaState:
+        return NyaFactory.nya_state_map[cls._command.name]
 
     def __init__(self, event: NyaEvent) -> None:
         self.event = event
@@ -239,7 +239,7 @@ class NyaPlugin(Generic[NyaConfigT, NyaStateT], ABC):
             await self.event.reply(ret.reply)
 
         if ret.report and self.config.debug_gid:
-            await self.report(message=ret.report)
+            await self._report(message=ret.report)
 
         if ret.need_help:
             await self.event.reply(_command.help_info(roles))
@@ -251,6 +251,14 @@ class NyaPlugin(Generic[NyaConfigT, NyaStateT], ABC):
         )
 
     @final
+    async def _report(self, message: str) -> None:
+        if not self.config.debug_gid:
+            self._logger.info("Report group not specified, discard report info")
+            return
+
+        await self.event.send_group_msg(group_id=self.config.debug_gid, message=message)
+
+    @final
     def _get_roles(self) -> set[str]:
         return {
             role
@@ -259,15 +267,16 @@ class NyaPlugin(Generic[NyaConfigT, NyaStateT], ABC):
         }
 
     @final
+    @classmethod
     def _parse_command(
-        self, command_part_list: list[str], roles: set[str]
+        cls, command_part_list: list[str], roles: set[str]
     ) -> tuple["Command", list[str], bool]:
         # 返回 <命令，参数，是否无权访问>
-        if self._command.limited_roles and not (self._command.limited_roles & roles):
+        if cls._command.limited_roles and not (cls._command.limited_roles & roles):
             # 命令无权限
-            return self._command, command_part_list[1:], True
+            return cls._command, command_part_list[1:], True
 
-        current_command = self._command
+        current_command = cls._command
         subcommand_idx = 1
         while isinstance(current_command, InternalCommand):
             # 命令参数消耗完
@@ -298,52 +307,46 @@ class NyaPlugin(Generic[NyaConfigT, NyaStateT], ABC):
         return current_command, command_part_list[subcommand_idx:], False
 
     @final
-    async def report(self, message: str) -> None:
-        if not self.config.debug_gid:
-            self._logger.info("Report group not specified, discard report info")
-            return
+    @classmethod
+    async def load_state(cls) -> None:
+        cls.logger.info("Loading state", plugin=cls.__class__.__name__)
 
-        await self.event.send_group_msg(group_id=self.config.debug_gid, message=message)
-
-    @final
-    async def load_state(self) -> None:
-        self.logger.info("Loading state", plugin=self.__class__.__name__)
-
-        if not (state_filename := self.config.state_filename):
-            self.logger.info("State filename not set", plugin=self.__class__.__name__)
+        if not (state_filename := cls.config.state_filename):
+            cls.logger.info("State filename not set", plugin=cls.__class__.__name__)
             return
 
         state_path = f"data/{state_filename}"
 
         if not os.path.exists(state_path):
-            self.logger.info("State file not found", plugin=self.__class__.__name__)
+            cls.logger.info("State file not found", plugin=cls.__class__.__name__)
             return
 
         with open(state_path, "r") as f:
-            self.state.model_validate_json(f.read())
+            cls.state.model_validate_json(f.read())
 
-        self.logger.info("State loaded", plugin=self.__class__.__name__)
+        cls.logger.info("State loaded", plugin=cls.__class__.__name__)
 
     @final
-    async def save_state(self) -> None:
-        self.logger.info("Saving state", plugin=self.__class__.__name__)
+    @classmethod
+    async def save_state(cls) -> None:
+        cls.logger.info("Saving state", plugin=cls.__class__.__name__)
 
-        if not (state_filename := self.config.state_filename):
-            self.logger.info("State filename not set", plugin=self.__class__.__name__)
+        if not (state_filename := cls.config.state_filename):
+            cls.logger.info("State filename not set", plugin=cls.__class__.__name__)
             return
 
         state_path = f"data/{state_filename}"
 
         if os.path.exists(state_path):
-            self.logger.info(
-                "Original State file backed up", plugin=self.__class__.__name__
+            cls.logger.info(
+                "Original State file backed up", plugin=cls.__class__.__name__
             )
             os.rename(state_path, state_path + ".bak")
 
         with open(state_path, "w") as f:
-            f.write(self.state.model_dump_json(indent=4))
+            f.write(cls.state.model_dump_json(indent=4))
 
-        self.logger.info("State saved", plugin=self.__class__.__name__)
+        cls.logger.info("State saved", plugin=cls.__class__.__name__)
 
 
 class NyaFactory:
